@@ -4320,6 +4320,19 @@ public class RexImpTable implements RexImplementorTable {
           break;
         }
         switch (typeName) {
+        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+          // Calendar months apply to local time in the session's time zone.
+          final Expression timeZone =
+              Expressions.call(BuiltInMethod.TIME_ZONE.method, translator.getRoot());
+          final Expression localTimestamp =
+              Expressions.call(BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIMESTAMP.method,
+                  trop0, timeZone);
+          final Expression result =
+              Expressions.call(BuiltInMethod.ADD_MONTHS.method, localTimestamp, trop1);
+          return Expressions.call(
+              BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+              Expressions.call(BuiltInMethod.UNIX_TIMESTAMP_TO_STRING_WITH_PRECISION.method,
+                  result, Expressions.constant(call.getType().getPrecision())), timeZone);
         case TIME:
           return Expressions.convert_(trop0, long.class);
         default:

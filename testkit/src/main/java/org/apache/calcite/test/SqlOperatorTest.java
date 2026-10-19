@@ -152,6 +152,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -4162,6 +4163,40 @@ public class SqlOperatorTest {
     f.checkScalar("interval '5-3' year to month"
             + " + timestamp '2003-08-02 12:54:01'",
         "2008-11-02 12:54:01", "TIMESTAMP(0) NOT NULL");
+
+    final SqlOperatorFixture tokyo = f.withConnectionFactory(cf ->
+        cf.with(CalciteConnectionProperty.TIME_ZONE, "Asia/Tokyo"));
+    final SqlOperatorFixture newYork = f.withConnectionFactory(cf ->
+        cf.with(CalciteConnectionProperty.TIME_ZONE, "America/New_York"));
+    assertAll("CALCITE-6287: local time zone timestamp and year-month interval",
+        () -> f.checkScalar(
+            "timestamp with local time zone '2021-01-01 00:00:00'"
+                + " + interval '1' month",
+            "2021-02-01 00:00:00", "TIMESTAMP_WITH_LOCAL_TIME_ZONE(0) NOT NULL"),
+        () -> tokyo.checkScalar(
+            "cast(cast(timestamp '2021-03-01 00:30:00'"
+                + " as timestamp with local time zone) + interval '1' month"
+                + " as timestamp)",
+            "2021-04-01 00:30:00", "TIMESTAMP(0) NOT NULL"),
+        () -> newYork.checkScalar(
+            "cast(cast(timestamp '2021-02-15 12:00:00'"
+                + " as timestamp with local time zone) + interval '1' month"
+                + " as timestamp)",
+            "2021-03-15 12:00:00", "TIMESTAMP(0) NOT NULL"),
+        () -> f.checkScalar(
+            "timestamp with local time zone '2020-02-29 08:15:00.123'"
+                + " + interval '1' year",
+            "2021-02-28 08:15:00.123", "TIMESTAMP_WITH_LOCAL_TIME_ZONE(3) NOT NULL"),
+        () -> f.checkScalar(
+            "interval '1-1' year to month"
+                + " + timestamp with local time zone '2020-02-29 08:15:00'",
+            "2021-03-29 08:15:00", "TIMESTAMP_WITH_LOCAL_TIME_ZONE(0) NOT NULL"),
+        () -> f.checkScalar(
+            "timestamp with local time zone '2021-03-01 00:00:00'"
+                + " - interval '1' month",
+            "2021-02-01 00:00:00", "TIMESTAMP_WITH_LOCAL_TIME_ZONE(0) NOT NULL"),
+        () -> f.checkNull(
+            "cast(null as timestamp with local time zone) + interval '1' month"));
   }
 
   @Test void testDescendingOperator() {
